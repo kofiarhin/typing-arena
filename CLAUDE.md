@@ -1,5 +1,112 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+**Typing Arena** is a mobile-first, real-time multiplayer typing race game. Players join a shared room, type the same text simultaneously, and watch their avatars race across a track in real time. The full product spec lives in `typing-arena-full-product-spec.md`.
+
+Current state: `client/` is a Vite+React scaffold. The `server/` directory does not exist yet and needs to be built.
+
+---
+
+## Commands
+
+All frontend commands run from `client/`:
+
+```bash
+cd client
+npm run dev       # start Vite dev server (port 5173)
+npm run build     # production build
+npm run lint      # ESLint
+npm run preview   # preview production build locally
+```
+
+When the backend exists, run it from `server/`:
+
+```bash
+cd server
+npm run dev       # nodemon (expected)
+npm test          # Jest
+```
+
+---
+
+## Architecture
+
+### Game Flow (State Machine)
+Session states: `lobby → countdown → in_progress → round_results → ended`
+
+- `lobby → ended` is also valid (host ends early)
+- `round_results → countdown` triggers a new round (restart)
+
+### Real-Time Transport
+Socket.IO is the primary channel for all live game state. REST (`/api/sessions`) handles bootstrapping only (create, fetch, join, end). Key socket events:
+
+**Client → Server:** `session:create`, `session:join`, `session:leave`, `round:start`, `round:progress`, `round:finish`, `round:restart`, `session:end`
+
+**Server → Client:** `session:created`, `session:joined`, `session:update`, `countdown:start`, `round:update`, `round:finished`, `player:disconnected`, `player:reconnected`, `error`
+
+### Progress and Scoring
+- Progress is character-sequential: only correct chars in order count
+- `progress = correctChars / totalChars`; avatar x-position = `trackWidth * progress`
+- Server is authoritative for all state transitions, winner validation, and timestamps
+- Client computes provisional local progress for immediate UI; reconciles against server broadcast
+- Emit progress updates throttled to ~50–100ms; do not emit on every raw keystroke
+
+### Frontend Structure (target)
+```
+client/src/
+  components/
+    lobby/        # lobby screen components
+    race/         # track, avatars, input, text display
+    results/      # round results, leaderboard, history
+    shared/       # reusable UI
+  pages/
+    Home.jsx
+    GameLobby.jsx
+    GameRace.jsx
+  services/
+    socket.js     # Socket.IO client singleton
+    gameApi.js    # REST calls via axios
+  hooks/
+    queries/      # TanStack Query hooks
+    mutations/
+  features/       # Redux slices (session identity only)
+```
+
+### Backend Structure (target)
+```
+server/
+  sockets/
+    index.js      # Socket.IO setup and namespace
+    handlers/     # one file per event group (session, round, player)
+  models/
+    Session.js    # Mongoose schema (session, players, rounds, leaderboard)
+  routes/         # REST endpoints
+  controllers/
+  middleware/
+  config/
+```
+
+### Key Data Models
+- **Session**: `gameId`, `status`, `hostPlayerId`, `players[]`, `leaderboard[]`, `rounds[]`
+- **Player snapshot**: `playerId`, `username`, `socketId`, `isHost`, `isActive`
+- **Round record**: `roundNumber`, `text`, `startedAt`, `endedAt`, `winnerPlayerId`, `results[]`
+- **Leaderboard entry**: `wins`, `roundsPlayed`, `totalTimeMs`, `averageTimeMs`, `bestTimeMs`
+
+Active game state should stay in memory (or Redis later); persist to MongoDB after rounds end.
+
+### Environment Variables
+Frontend needs:
+- `VITE_API_URL` — backend REST base URL
+- `VITE_SOCKET_URL` — backend socket URL
+
+Backend needs:
+- `MONGODB_URI`, `CLIENT_URL`, `PORT`
+
+---
+
 ## Tech Stack
 
 Use the following stack by default unless the project explicitly requires otherwise.
