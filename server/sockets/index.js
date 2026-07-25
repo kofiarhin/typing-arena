@@ -4,6 +4,8 @@ const { registerSessionHandlers } = require("./handlers/sessionHandler");
 const { registerRoundHandlers } = require("./handlers/roundHandler");
 const { registerPlayerHandlers } = require("./handlers/playerHandler");
 
+let ioInstance = null;
+
 function initSockets(server) {
   const io = new Server(server, {
     cors: {
@@ -11,6 +13,8 @@ function initSockets(server) {
       credentials: true,
     },
   });
+
+  ioInstance = io;
 
   io.on("connection", (socket) => {
     registerSessionHandlers(io, socket);
@@ -21,4 +25,9 @@ function initSockets(server) {
   return io;
 }
 
+function isSocketReady() {
+  return Boolean(ioInstance && ioInstance.engine);
+}
+
 module.exports = initSockets;
+module.exports.isSocketReady = isSocketReady;
