@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { CLIENT_URL } = require("./config/env");
 const sessionsRouter = require("./routes/sessions");
+const systemStatusRouter = require("./routes/systemStatus");
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(
   })
 );
 
+app.use("/api/system-status", systemStatusRouter);
 app.use("/api/sessions", sessionsRouter);
 
 app.use((req, res) => {
