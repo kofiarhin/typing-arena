@@ -2,12 +2,18 @@ import { useEffect, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { socket } from "../services/socket";
-import { updateHost, setRaceData, clearRaceData } from "../features/session/sessionSlice";
+import {
+  updateHost,
+  setRaceData,
+  clearRaceData,
+  setRoundResults,
+} from "../features/session/sessionSlice";
 
 export function useGameSocket({ playerId, gameId } = {}) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const storedRaceData = useSelector((s) => s.session.raceData);
+  const storedRoundResults = useSelector((s) => s.session.roundResults);
 
   const [sessionData, setSessionData] = useState(null);
   // Seed raceState from Redux so it survives the GameLobby → GameRace route transition
@@ -16,7 +22,8 @@ export function useGameSocket({ playerId, gameId } = {}) {
       ? { ...storedRaceData, players: [], phase: "countdown" }
       : null
   );
-  const [roundResults, setRoundResults] = useState(null);
+  // Seed results from Redux so they survive the GameRace → GameResults route transition
+  const [roundResults, setLocalRoundResults] = useState(storedRoundResults);
   const [connectionStatus, setConnectionStatus] = useState("connected");
   const [errors, setErrors] = useState([]);
 
@@ -62,7 +69,8 @@ export function useGameSocket({ playerId, gameId } = {}) {
 
     function onRoundFinished(data) {
       dispatch(clearRaceData());
-      setRoundResults(data);
+      dispatch(setRoundResults(data));
+      setLocalRoundResults(data);
       navigate(`/results/${data.gameId}`);
     }
 
